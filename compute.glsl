@@ -18,6 +18,7 @@ struct _sphere{
 	vec4 color;
 };
 
+// this variable is used to store information from a ray cast
 struct _hit {
 	// index of item
 	int i;
@@ -48,15 +49,17 @@ struct _triangle {
 	vec4 bVolume;
 };
 
-// buffers
+// buffers containing lights
 layout(std430, binding = 1) buffer lightData {
 	_sphere lights[];
 };
 
+// buffers containing spheres
 layout(std430, binding = 2) buffer sphereData {
 	_sphere spheres[];
 };
 
+// buffers containing the model data
 layout(std430, binding = 3) buffer triangleData{
 	_triangle model[];
 };
@@ -71,13 +74,14 @@ uniform float bVolume;
 
 uniform vec3 backgroundColor;
 
+// declare functions
 _hit rayCast(_ray ray);
 bool rayCast2(_ray ray, int exeptionIndex, int exeptionType);
 
 // camera
 uniform cam camera;
 
-// quadratic formula
+// solves quadratic formulae and returns largest value
 float quadraticFormula(float discriminant, vec3 rayp2, vec3 rayOrigin, vec3 spherePosition) {
 	float a = dot(rayp2, rayp2);
 	float b = 2 * dot(rayp2, rayOrigin - spherePosition);
@@ -96,10 +100,12 @@ float sphereRayCast(_ray r, vec3 sp, float rad) {
 	return (b * b) - (4 * a * c);
 }
 
+// radians to degrees
 float toDegrees(float r) {
 	return r * 180 / PI;
 }
 
+// find the angle between two vectors
 float findAngle(vec3 a, vec3 b) {
 	float dotp = dot(a, b);
 	return acos(dotp);
@@ -107,11 +113,15 @@ float findAngle(vec3 a, vec3 b) {
 
 // calculate all lighting from spheres and add to pixel value
 void sphereLighting(_ray r, unsigned int sphereIndex, vec3 inter, inout vec4 pix) {
+	// surface normal of sphere
 	vec3 surfaceNormal = normalize(inter - vec3(spheres[sphereIndex].position));
+
 	// run ray cast 
 	for (int j = 0; j < lightCount; j++) {
+		// vector from light source to intersection point on sphere
 		vec3 lightRay = normalize(vec3(lights[j].position) - inter);
-		
+
+		// cacluate color of pixel
 		r.color = vec3(lights[j].color) * vec3(spheres[sphereIndex].color) * dot(surfaceNormal, lightRay);
 
 		pix += vec4(r.color, 1);
@@ -133,9 +143,15 @@ _plane findPlaneEquation(vec3 p1, vec3 p2, vec3 p3) {
 
 // ray plane intersection
 float rayPlaneIntersection(_plane plane, _ray ray) {
+	// denominator of fraction
 	float bottomHalf = dot(ray.p2, plane.normal);
+	// make sure not to devide by 0
 	if (bottomHalf == 0) return -1.0f;
+
+	// numerator of fraction
 	float topHalf = dot(plane.d - ray.origin, plane.normal);
+
+	// distance from origin of ray to intersection
 	float t = topHalf / bottomHalf;
 	if (t > 0) {
 		return t;
@@ -145,9 +161,13 @@ float rayPlaneIntersection(_plane plane, _ray ray) {
 }
 
 // ray triangle intersection using angle
+// use the angles of lines connecting triangle vertices and interesction to confirm if hit was inside triangle
 bool pointInTriangle(_triangle tri, vec3 intersect) {
+	// the three lines going from intersecting of the triangles plane to triangles vertices
 	vec3 lines[3];
+	// the angles between the lines
 	float angles[3];
+
 	for (int i = 0; i < 3; i++) {
 		lines[i] = normalize(vec3(tri.p[i]) - intersect);
 	}
@@ -155,21 +175,21 @@ bool pointInTriangle(_triangle tri, vec3 intersect) {
 	angles[1] = toDegrees(findAngle(lines[1], lines[2]));
 	angles[2] = toDegrees(findAngle(lines[2], lines[0]));
 
-	//pixel = vec4((angles[0] + angles[1] + angles[2]) / 360, 0, 0, 1);
-
 	if (angles[0] + angles[1] + angles[2] > 359)
 		return true;
 	else
 		return false;
 }
 
-// return >= 0 if ray intersects triangle and i = intersection
+// return >= 0 if ray intersects triangle
 float triangleRayCast(_triangle triangle, _ray ray) {
+	// three vertices of triangle
 	vec3 tri1 = vec3(triangle.p[0]);
 	vec3 tri2 = vec3(triangle.p[1]);
 	vec3 tri3 = vec3(triangle.p[2]);
 
 	_plane plane = findPlaneEquation(tri1, tri2, tri3);
+	// distance from ray origin to intersection
 	float t = rayPlaneIntersection(plane, ray);
 	
 	if (t >= 0) {
@@ -183,7 +203,7 @@ float triangleRayCast(_triangle triangle, _ray ray) {
 		return -1.0;
 }
 
-// function for triangles
+// function for lighting triangles
 void triangleLighting(_hit hit, _ray ray, inout vec4 pixel) {
 	_triangle t = model[hit.i];
 	_plane plane = findPlaneEquation(vec3(t.p[0]), vec3(t.p[1]), vec3(t.p[2]));
@@ -206,6 +226,7 @@ void triangleLighting(_hit hit, _ray ray, inout vec4 pixel) {
 
 }
 
+// run raycast for entire scene
 _hit rayCast(_ray ray, bool doTriangles) {
 	_hit hitDesc;
 
