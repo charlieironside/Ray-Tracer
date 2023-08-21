@@ -19,31 +19,38 @@ public:
 		std::fstream read("monkey.txt");
 		std::vector<glm::vec3>vertices;
 		std::vector<unsigned int>indices;
+		
+		// flag for weather data is vertex or indices
 		char type;
+		// three empty variables to temporarily store read data
 		float p[3];
 
 		while (read >> type >> p[0] >> p[1] >> p[2]) {
+			// if type = v the following 3 data points are vertices
 			if (type == 'v') {
 				glm::vec3 t;
 				t = glm::vec3(p[0], p[1], p[2]);
 				vertices.push_back(t);
 			}
 
+			// if type = f the following 3 data points form a face/triangle
 			if (type == 'f') {
 				indices.push_back(int(p[0]));
 				indices.push_back(int(p[1]));
 				indices.push_back(int(p[2]));
 			}
 
+			// case in which type isnt v or f
 			else if(type != 'v' && type != 'f')
 			{
 				printf("TYPE UNREADABLE\n");
 			}
 
-			// skip to next line of file
+			// move fstream to next line of file
 			read.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 		}
 
+		// loop through and add triangles read from the file to triangle vector in a triangle struct
 		for (int i = 0; i < indices.size(); i+=3) {
 			triangleStruct temp;
 			temp.p[0] = glm::vec4(vertices[indices[i] - 1], 0);
