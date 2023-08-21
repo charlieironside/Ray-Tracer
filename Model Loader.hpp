@@ -76,9 +76,10 @@ public:
 		t.boundingVolume.w = (a > b) ? ((a > c) ? a : c) : ((b > c) ? b : c);
 	}
 
-	// returns radius of bounding volume
+	// returns radius of bounding volume of a model and generates bounding volumes for individual triangles
 	float boundingVolume(std::vector<triangleStruct>&triangles) {
 		float largestVertice = 0;
+		// loop through all triangles and calculate their bounding spherical volume
 		for (int i = 0; i < triangles.size(); i++) {
 			triangleBoundingVolume(triangles[i]);
 			if (triangles[i].boundingVolume.w > largestVertice)
