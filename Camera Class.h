@@ -26,26 +26,31 @@ public:
 		up = glm::normalize(glm::cross(target, right));
 	}
 
+	// take in change in mouse position then update camera vectors accordingly
 	void updateTarget(float offsetx, float offsety) {
+		// scale inputs by sensitivity
 		offsetx *= sensitivity;
 		offsety *= sensitivity;
 
 		yaw -= offsetx;
-		pitch += offsety;							// BUGGED
+		pitch += offsety; // not sure
 
 		if (pitch >= 90)
 			pitch = 89;
 		if (pitch <= -90)
 			pitch = -89;
 
+		// update the forward facing vector of the camera
 		target.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
 		target.y = sin(glm::radians(pitch));
 		target.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
 		target = glm::normalize(target);
 
+		// update all other vectors based on the new target vector
 		updateCameraVectors();
 	}
 
+	// check for keayboard inputs and update position vectors appropriatly, called per frame
 	void updatePosition(GLFWwindow* window, float deltaTime) {
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 			position += target * speed * deltaTime;
