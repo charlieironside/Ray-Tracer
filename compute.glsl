@@ -249,7 +249,7 @@ _hit rayCast(_ray ray, bool doTriangles) {
 		}
 	}
 
-	// loop for all lights
+	// loop for all spheres
 	for (int i = 0; i < sphereCount; i++) {
 		float discriminant = sphereRayCast(ray, vec3(spheres[i].position), spheres[i].color.w);
 		if (discriminant >= 0) {
