@@ -34,21 +34,22 @@ struct sphereStruct {
 
 unsigned int lightCount = 0, sphereCount = 0;
 
+// vectors will be filled then sent to gpu
 std::vector<sphereStruct>lights;
 std::vector<sphereStruct>spheres;
 std::vector<triangleStruct>triangles;
 
 int main()
 {
-	// Setup
+	// glfw setup to show window
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	// Time before next frame
+	// time before displaying next frame
 	glfwSwapInterval(0);
 
-	// Create window object
+	// create window object
 	GLFWwindow* window = glfwCreateWindow(SCRN_WIDTH, SCRN_HEIGHT, "Ray Tracer", NULL, NULL);
 	if (window == NULL)
 	{
@@ -62,13 +63,14 @@ int main()
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 
-	// Loads Glad.c
+	// loads Glad.c
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
 		std::cout << "Failed to create glfw window";
 		return -1;
 	}
 
+	// dimensions of work groups
 	int max_compute_work_group_count[3];
 	int max_compute_work_group_size[3];
 	int max_compute_work_group_invocations;
@@ -79,6 +81,7 @@ int main()
 	}
 	glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &max_compute_work_group_invocations);
 
+	// display maximum dimensions for work groups
 	std::cout << "OpenGL Limitations: " << std::endl;
 	std::cout << "maximum number of work groups in X dimension " << max_compute_work_group_count[0] << std::endl;
 	std::cout << "maximum number of work groups in Y dimension " << max_compute_work_group_count[1] << std::endl;
@@ -90,14 +93,18 @@ int main()
 
 	std::cout << "Number of invocations in a single local work group that may be dispatched to a compute shader " << max_compute_work_group_invocations << std::endl;
 
+	// initialize shader objects
 	ComputeShader computeShader("compute.GLSL");
 	Shader shaders("vertex.GLSL", "fragment.GLSL");
 
 	// output image from compute shader
 	unsigned int texture;
 
+	// generate texture buffer objects
 	glGenTextures(1, &texture);
 	glActiveTexture(GL_TEXTURE0);
+	
+	// specify setting of texture objects
 	glBindTexture(GL_TEXTURE_2D, texture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -109,11 +116,13 @@ int main()
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture);
 
+	// temporary objects to fill vectors with
 	sphereStruct t;
 
-	// add to lights
+	// fill temporary object with a light object
 	t.pos = glm::vec4(0, 2, 1.5, 0);
 	t.col = glm::vec4(0, 1, 0, 0.1);
+	// add temporary object to lights vector
 	lights.push_back(t);
 	
 	t.pos = glm::vec4(0, 0, 2, 0);
@@ -125,20 +134,27 @@ int main()
 	lights.push_back(t);
 
 	ModelLoader loader;
+	// load model data from file into "triangles"
 	loader.load(triangles);
+	// build simple BVH around "triangles" model
 	float boundingVolume = loader.boundingVolume(triangles);
 
-	std::cout << triangles.size();
-
+	// initialize shader storage buffer objects
 	unsigned int lightSSBO, sphereSSBO, triangleSSBO;
+	// create buffer for lights, spheres and model data
 	glGenBuffers(1, &lightSSBO);
 	glGenBuffers(1, &sphereSSBO);
 	glGenBuffers(1, &triangleSSBO);
 
+	// first check that buffer isnt empty
 	if (lights.size() > 0) {
+		// bind lights as the current buffer
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightSSBO);
+		// specify layout of data, type, size of buffer in bytes, first element, access specifier
 		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(sphereStruct) * lights.size(), &lights[0], GL_DYNAMIC_DRAW);
+		// bind buffer to 1st buffer
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, lightSSBO);
+		// remove buffer binding
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	}
 	
@@ -156,34 +172,33 @@ int main()
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	}
 
+	// render loop
 	while (!glfwWindowShouldClose(window))
 	{
+		// calculate time between frames
 		currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 
+		// call function to handle keyboard inputs
 		camera.updatePosition(window, deltaTime);
 
+		// close window if escape is pressed
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, true);
-		
+
+		// code to update one of the SSBO mid frame
 		/*glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightSSBO);
 		glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, 40 * lights.size(), &lights[0]);*/
 
-		// Set background colour
-		//glClearColor(0.5, 0.5, 0.5, 1.0);
-
+		// activate compute shaders
 		computeShader.use();
 
-		// fov
+		// send uniform variables to gpu
 		computeShader.setFloat("fov", camera.fov);
-		// camera pos
 		computeShader.setVec3("camera.position", camera.position);
-		// cameea target
 		computeShader.setVec3("camera.target", camera.target);
-		// camera up
 		computeShader.setVec3("camera.up", camera.up);
-		// camera right
 		computeShader.setVec3("camera.right", camera.right);
 
 		computeShader.setInt("sphereCount", spheres.size());
@@ -193,15 +208,20 @@ int main()
 		computeShader.setVec3("backgroundColor", glm::vec3(0));
 		computeShader.setFloat("bVolume", boundingVolume);
 
-		// 32 invocations per work group for Nvidia
+		// specify dimensions of invocations, 32 invocations per work group for Nvidia
 		glDispatchCompute((int)TEXTURE_WIDTH/8, (int)TEXTURE_HEIGHT/4, 1);
+		// pause render loop until compute shaders have finished operating on textrue
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// activate shaders to draw texture to quad
 		shaders.use();
 
+		// render quad and display texture ontop
 		renderQuad();
 
+		// swap previouse frame buffer with current one
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
@@ -213,6 +233,7 @@ int main()
 
 unsigned int quadVAO = 0;
 unsigned int quadVBO;
+// draw simple quad to render texture to
 void renderQuad()
 {
 	if (quadVAO == 0)
@@ -224,13 +245,16 @@ void renderQuad()
 			 1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
 			 1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
 		};
-		// setup plane VAO
+		// initialize VAO
 		glGenVertexArrays(1, &quadVAO);
 		glGenBuffers(1, &quadVBO);
 		glBindVertexArray(quadVAO);
+		// bind VAO
 		glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+		// declare data going to buffer
 		glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
+		// define the layout of vertex data
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
@@ -240,6 +264,7 @@ void renderQuad()
 	glBindVertexArray(0);
 }
 
+// handle mouse input
 void mouse_callback(GLFWwindow *window, double xposIn, double yposIn)
 {
 	float xpos = static_cast<float>(xposIn);
@@ -258,5 +283,6 @@ void mouse_callback(GLFWwindow *window, double xposIn, double yposIn)
 	lastX = xpos;
 	lastY = ypos;
 
+	// update camera vectors
 	camera.updateTarget(xoffset, yoffset);
 }
