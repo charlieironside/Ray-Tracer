@@ -1,0 +1,8 @@
+ALL FILES FROM PUBLISH RELEASE MUST BE IN SAME FILE DIRECTORY TO RUN CORRECTLY
+THIS INCLUDES
+compute.glsl
+fragment.glsl
+lights.txt
+model.txt
+template.exe
+vertex.GLSL
