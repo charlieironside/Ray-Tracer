@@ -20,7 +20,7 @@ struct _sphere{
 
 // this variable is used to store information from a ray cast
 struct _hit {
-	// index of item
+	// index of item        EREOREOROROROORORORROROROROOR
 	int i;
 	// type of item
 	int T;
