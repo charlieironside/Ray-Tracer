@@ -112,7 +112,7 @@ float findAngle(vec3 a, vec3 b) {
 }
 
 // calculate all lighting from spheres and add to pixel value
-void sphereLighting(_ray r, unsigned int sphereIndex, vec3 inter, inout vec4 pix) {
+void sphereLighting(_ray r, int sphereIndex, vec3 inter, inout vec4 pix) {
 	// surface normal of sphere
 	vec3 surfaceNormal = normalize(inter - vec3(spheres[sphereIndex].position));
 
